@@ -18,10 +18,15 @@ app.get('/about', (req, res) => {
   res.render('about', { title: 'About', message: 'Dies ist die About-Seite.' });
 });
 
-// Route für die Contact-Seite
-app.get('/contact', (req, res) => {
-  res.render('contact', { title: 'Contact', message: 'Dies ist die Contact-Seite.' });
-});
+// Route für Seite1
+app.get('/seite1', (req, res) => {
+    res.render('seite1', { title: 'Seite 1', message: 'Dies ist Seite 1.' });
+  });
+
+// Route für Seite2
+app.get('/seite2', (req, res) => {
+    res.render('seite2', { title: 'Seite 2', message: 'Dies ist Seite 2.' });
+  });
 
 // Server starten
 app.listen(3000, () => {
