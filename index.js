@@ -1,7 +1,8 @@
 import express from 'express';
-const app = express();
 import pool from './db.js';
 import bcrypt from 'bcryptjs';
+
+const app = express();
 
 // Statische Dateien bereitstellen
 app.use(express.static('public'));
@@ -17,49 +18,85 @@ app.use(express.urlencoded({ extended: true }));
 
 // Route für die Startseite
 app.get('/', (req, res) => {
-  // Render die index.ejs und übergebe Variablen
   res.render('index', { title: 'Startseite', message: 'Willkommen auf der Startseite!' });
 });
 
-// Route für die About-Seite
-app.get('/about', (req, res) => {
-  res.render('about', { title: 'About', message: 'Überschrift' });
+// Route für die Registrierung (GET)
+app.get('/register', (req, res) => {
+  res.render('register', { 
+    title: 'Registrierung', 
+    message: 'Registrierung', 
+    errorMessage: null,   // Leere Fehlermeldung, wenn keine Fehler vorliegen
+    successMessage: null   // Leere Erfolgsmeldung, wenn keine Erfolgsmeldung vorliegt
+  });
 });
 
-// Route für Seite1
-app.get('/seite1', (req, res) => {
-    res.render('seite1', { title: 'Seite 1', message: 'Überschrift' });
-  });
+// Route für die Registrierung (POST)
+app.post('/register', async (req, res) => {
+  const { username, name, email, password, confirmPassword } = req.body;
 
-// Route für Seite2
-app.get('/seite2', (req, res) => {
-    res.render('seite2', { title: 'Seite 2', message: 'Überschrift' });
-  });
+  // Prüfe, ob die Passwörter übereinstimmen
+  if (password !== confirmPassword) {
+    return res.render('register', {
+      title: 'Registrierung',
+      message: 'Registrierung',
+      errorMessage: 'Die Passwörter stimmen nicht überein.',
+      successMessage: null
+    });
+  }
 
-  // Route für Register
-app.get('/register', (req, res) => {
-    res.render('register', { title: 'Register', message: 'Register' });
-  });
+  const conn = await pool.getConnection();
+  try {
+    // Prüfe, ob der Benutzername bereits existiert
+    const existingUser = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
+    if (existingUser.length > 0) {
+      return res.render('register', {
+        title: 'Registrierung',
+        message: 'Registrierung',
+        errorMessage: 'Der Benutzername ist bereits vergeben.',
+        successMessage: null
+      });
+    }
+
+    // Prüfe, ob die E-Mail bereits existiert
+    const existingEmail = await conn.query('SELECT * FROM users WHERE email = ?', [email]);
+    if (existingEmail.length > 0) {
+      return res.render('register', {
+        title: 'Registrierung',
+        message: 'Registrierung',
+        errorMessage: 'Diese E-Mail-Adresse wird bereits verwendet.',
+        successMessage: null
+      });
+    }
+
+    // Hash das Passwort und speichere den Benutzer
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await conn.query(
+      'INSERT INTO users (username, name, email, password_hash) VALUES (?, ?, ?, ?)',
+      [username, name, email, hashedPassword]
+    );
+
+    // Erfolgreiche Registrierung
+    res.render('register', {
+      title: 'Registrierung',
+      message: 'Registrierung',
+      errorMessage: null,
+      successMessage: 'Die Registrierung war erfolgreich!'
+    });
+  } catch (err) {
+    console.log(err);
+    res.render('register', {
+      title: 'Registrierung',
+      message: 'Registrierung',
+      errorMessage: 'Es gab einen Fehler bei der Registrierung.',
+      successMessage: null
+    });
+  } finally {
+    conn.release();
+  }
+});
 
 // Server starten
 app.listen(3000, () => {
   console.log('Server läuft auf http://localhost:3000');
 });
-
-app.post('/register', async (req, res) => {
-    console.log(req.body);
-    const { username, name, email, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const conn = await pool.getConnection();
-   
-    try {
-      await conn.query('INSERT INTO users (username, name, email, password_hash) VALUES (?, ?, ?, ?)',
-        [username, name, email, hashedPassword]);
-      res.status(201).redirect('/');
-    } catch (err) {
-      console.log(err);
-      res.status(500).send('Fehler bei der Registrierung');
-    } finally {
-      conn.release();
-    }
-  });
