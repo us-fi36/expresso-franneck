@@ -7,7 +7,7 @@ app.use(express.static('public'));
 // Setze den View-Engine auf EJS
 app.set('view engine', 'ejs');
 
-// Stelle sicher, dass der Ordner "views" als Standard für Templates genutzt wird
+// Standard für Templates 
 app.set('views', './views');
 
 // Route für die Startseite
