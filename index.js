@@ -7,70 +7,37 @@ import secrets from './secrets.js';
 
 const app = express();
 
-// Cookie-Parser-Middleware verwenden
+// Middleware
 app.use(cookieParser());
-
-// Statische Dateien bereitstellen
 app.use(express.static('public'));
-
-// Setze den View-Engine auf EJS
 app.set('view engine', 'ejs');
-
-// Standard für Templates 
 app.set('views', './views');
-
-// Middleware, um URL-encoded-Daten zu verarbeiten
 app.use(express.urlencoded({ extended: true }));
 
-// Route für die Startseite
+// Startseite
 app.get('/', (req, res) => {
   res.render('index', { title: 'Startseite', message: 'Willkommen auf der Startseite!' });
 });
 
-// Route für die Login-Seite (GET)
+// Route für Login-Seite (GET)
 app.get('/login', (req, res) => {
-  res.render('login', { title: 'Login', message: 'Login' });
+  res.render('login', { title: 'Login', message: 'Login', error: null });
 });
 
-// Route für die eingeloggt-Seite
-app.get('/eingeloggt', (req, res) => {
-  const token = req.cookies['token'];
-  let loggedInUser = false;
-
-  if (token) {
-      // Token verifizieren und Benutzerdaten erhalten
-      jwt.verify(token, secrets.jwt_secret_key, (err, user) => {
-          if (err) {
-              // Token ungültig
-              console.log(err);
-          } else {
-              loggedInUser = user; // Benutzerinformationen aus dem Token extrahieren
-          }
-      });
-  }
-
-  res.render('eingeloggt', {
-      title: 'Willkommen zurück!',
-      message: 'Sie sind erfolgreich eingeloggt!',
-      user: loggedInUser // Benutzerinformationen an das Template übergeben
-  });
-});
-
-// Route für die Registrierung (GET)
+// Route für Registrierung-Seite (GET)
 app.get('/register', (req, res) => {
   res.render('register', { 
     title: 'Registrierung', 
     message: 'Registrierung', 
-    errorMessage: null,   // Leere Fehlermeldung, wenn keine Fehler vorliegen
-    successMessage: null  // Leere Erfolgsmeldung, wenn keine Erfolgsmeldung vorliegt
+    errorMessage: null, 
+    successMessage: null 
   });
 });
 
-// Route für die Registrierung (POST)
+// Route für Registrierung (POST)
 app.post('/register', async (req, res) => {
   const { username, name, email, password, confirmPassword } = req.body;
 
-  // Prüfe, ob die Passwörter übereinstimmen
   if (password !== confirmPassword) {
     return res.render('register', {
       title: 'Registrierung',
@@ -82,7 +49,6 @@ app.post('/register', async (req, res) => {
 
   const conn = await pool.getConnection();
   try {
-    // Prüfe, ob der Benutzername bereits existiert
     const existingUser = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
     if (existingUser.length > 0) {
       return res.render('register', {
@@ -93,7 +59,6 @@ app.post('/register', async (req, res) => {
       });
     }
 
-    // Prüfe, ob die E-Mail bereits existiert
     const existingEmail = await conn.query('SELECT * FROM users WHERE email = ?', [email]);
     if (existingEmail.length > 0) {
       return res.render('register', {
@@ -104,14 +69,12 @@ app.post('/register', async (req, res) => {
       });
     }
 
-    // Hash das Passwort und speichere den Benutzer
     const hashedPassword = await bcrypt.hash(password, 10);
     await conn.query(
       'INSERT INTO users (username, name, email, password_hash) VALUES (?, ?, ?, ?)',
       [username, name, email, hashedPassword]
     );
 
-    // Erfolgreiche Registrierung
     res.render('register', {
       title: 'Registrierung',
       message: 'Registrierung',
@@ -141,41 +104,60 @@ app.post('/login', async (req, res) => {
     user = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
   } catch (err) {
     console.log(err);
-    return res.status(500).render('login', { title: 'Login', error: 'Fehler beim Login' });
+    return res.status(500).render('login', { title: 'Login', message: 'Login', error: 'Fehler beim Login' });
   } finally {
     conn.release();
   }
 
-  if (user && user.length === 0) {
-    return res.status(404).render('login', { title: 'Login', error: 'Benutzer nicht gefunden.' });
+  if (!user || user.length === 0) {
+    return res.status(404).render('login', { title: 'Login', message: 'Login', error: 'Benutzer nicht gefunden.' });
   }
 
-  const userData = user[0]; // Zugriff auf den Benutzer aus der Datenbank
+  const userData = user[0];
   const isMatch = await bcrypt.compare(password, userData.password_hash);
 
   if (!isMatch) {
-    return res.status(403).render('login', { title: 'Login', error: 'Falsches Passwort' });
+    return res.status(403).render('login', { title: 'Login', message: 'Login', error: 'Falsches Passwort' });
   }
 
-  // JWT erstellen und als Cookie setzen
   try {
     const token = jwt.sign(
-      { username: userData.username, name: userData.name, email: userData.email }, // Token-Daten
-      secrets.jwt_secret_key,  // Geheimen Schlüssel von secrets.js verwenden
-      { expiresIn: '1h' }      // Token läuft nach 1 Stunde ab
+      { username: userData.username, name: userData.name, email: userData.email },
+      secrets.jwt_secret_key,
+      { expiresIn: '1h' }
     );
 
-    // Token als HTTP-Only-Cookie setzen und weiterleiten
-    res.cookie('token', token, { httpOnly: true }).redirect('/eingeloggt');
+    res.cookie('token', token, { httpOnly: true }).redirect('/dashboard');
   } catch (err) {
     console.log(err);
-    return res.status(500).render('login', { title: 'Login', error: 'Fehler beim Erstellen des Tokens' });
+    return res.status(500).render('login', { title: 'Login', message: 'Login', error: 'Fehler beim Erstellen des Tokens' });
   }
 });
 
+// Route für das Dashboard (geschützter Bereich)
+app.get('/dashboard', authenticateToken, (req, res) => {
+  res.render('dashboard', { title: 'Dashboard', user: res.locals.user });
+});
+
+// Logout Route
 app.post('/logout', (req, res) => {
   res.clearCookie('token').redirect('/');
 });
+
+// Middleware für Authentifizierung
+function authenticateToken(req, res, next) {
+  const token = req.cookies['token'];
+  if (!token) {
+    return res.status(401).redirect('/login');
+  }
+
+  try {
+    res.locals.user = jwt.verify(token, secrets.jwt_secret_key);
+    next();
+  } catch (err) {
+    return res.status(403).redirect('/login');
+  }
+}
 
 // Server starten
 app.listen(3000, () => {
