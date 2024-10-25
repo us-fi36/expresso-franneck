@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <%- include('partials/header') %>
+
+
+  <p>Willkommen, <%= user.name %>! Sie sind im geschützten Bereich.</p>
+  <p>Email: <%= user.email %></p>
+
+  <form action="/logout" method="POST">
+    <button type="submit">Abmelden</button>
+  </form>
+
+  <%- include('partials/footer') %>
+</body>
+</html>
+
