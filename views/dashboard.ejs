@@ -8,9 +8,26 @@
 <body>
   <%- include('partials/header') %>
 
-
   <p>Willkommen, <%= user.name %>! Sie sind im geschützten Bereich.</p>
-  <p>Email: <%= user.email %></p>
+  <div class="container">
+    <div class="row">
+      <div class="col-6">
+      </div>
+      <div class="col-6">
+        <form id="todo-form">
+          <div class="form-group">
+            <input type="text" id="todo-input" class="form-control"
+                   placeholder="Neue Aufgabe hinzufügen" required>
+            <input type="hidden" id="user-id" name="user-id" value="<%= user.id %>">
+            <button type="submit" class="btn btn-primary">Hinzufügen</button>
+          </div>
+        </form>
+        <ul id="todo-list">
+          <!-- Unordered list to dynamically add todo list items. -->
+        </ul>
+      </div>
+    </div>
+  </div>
 
   <form action="/logout" method="POST">
     <button type="submit">Logout</button>
@@ -18,5 +35,5 @@
 
   <%- include('partials/footer') %>
 </body>
+<script src="/todo.js" defer></script>
 </html>
-

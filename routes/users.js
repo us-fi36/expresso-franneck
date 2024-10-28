@@ -88,29 +88,23 @@ router.post('/login', async (req, res) => {
         return res.status(404).render('login', { title: 'Login', message: 'Login', error: 'Benutzer nicht gefunden.' });
     }
 
-    const userData = user[0];
-    const isMatch = await bcrypt.compare(password, userData.password_hash);
-
+    const isMatch = await bcrypt.compare(password, user[0].password_hash);
     if (!isMatch) {
-        return res.status(403).render('login', { title: 'Login', message: 'Login', error: 'Falsches Passwort' });
-    }
-
-    try {
-        const token = jwt.sign(
-            { username: userData.username, name: userData.name, email: userData.email },
-            secrets.jwt_secret_key,
-            { expiresIn: '1h' }
-        );
-
-        res.cookie('token', token, { httpOnly: true }).redirect('/dashboard');
-    } catch (err) {
-        console.log(err);
-        return res.status(500).render('login', { title: 'Login', message: 'Login', error: 'Fehler beim Erstellen des Tokens' });
-    }
-});
+      return res.status(403).render('login', { title: 'Login', error: 'Falsches Passwort'});
+    } 
+    const token = jwt.sign({ id: user[0].id,
+                             username: user[0].username,
+                             name: user[0].name, 
+                             email: user[0].email  },
+                             secrets.jwt_secret_key,
+                             { expiresIn: '1h' });
+    res.cookie('token', token, { httpOnly: true }).redirect('/');
+  });
+  
 
 // Route für das Dashboard (geschützter Bereich)
 router.get('/dashboard', authenticateToken, (req, res) => {
+    console.log(res.locals)
     res.render('dashboard', { title: 'Dashboard', user: res.locals.user });
 });
 
